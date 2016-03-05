@@ -14,6 +14,9 @@ function varargout=rdsac(varargin)
 %	[...]=RDSAC(...,'plot') or RDSAC(...) without output argument will plot
 %	the data in a new figure.
 %
+%	RDSAC(...,'enumerated') returns original integer values for enumerated
+%	header fields (name start with an I), instead of descriptive string.
+%
 %	Notes:
 %	- RDSAC tries to detect automatically byte ordering of the file;
 %	- time is corrected from B value;
@@ -23,14 +26,19 @@ function varargout=rdsac(varargin)
 %
 %	Author: F. Beauducel <beauducel@ipgp.fr>
 %	Created: 2014-04-01
-%	Updated: 2015-11-11
+%	Updated: 2016-03-05
 
-%	History:
+%	Release history:
+%	[2016-03-05] v1.2
+%		- adds NZDTTM header vector.
+%		- enumerated header fields are now replaced by descriptive strings.
+%		Use the new 'enumerated' option for backward compatibility.
+%
 %	[2015-11-11] v1.1
 %		- output alternative returning data, origin time and header.
 %		- undefined header fields are not returned.
 %
-%	Copyright (c) 2015, FranÃ§ois Beauducel, covered by BSD License.
+%	Copyright (c) 2016, François Beauducel, covered by BSD License.
 %	All rights reserved.
 %
 %	Redistribution and use in source and binary forms, with or without 
@@ -76,7 +84,7 @@ if fid == -1
 	error('Cannot open input data file %s',f);
 end
 
-[H,t0] = readheader(fid);
+[H,t0] = readheader(fid,varargin);
 
 % inconsistent header content might be due to big-endian byte ordering...
 if isnan(t0)
@@ -103,7 +111,7 @@ elseif nargout > 1
 end
 
 % plots the data
-if (nargout == 0 || any(strcmp(varargin,'plot'))) && length(d) == length(t)
+if (nargout == 0 || any(strcmpi(varargin,'plot'))) && length(d) == length(t)
 	figure
 	plot(t,d)
 	xlim = [min(t),max(t)];
@@ -130,7 +138,8 @@ if (nargout == 0 || any(strcmp(varargin,'plot'))) && length(d) == length(t)
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [H,t0] = readheader(fid)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [H,t0] = readheader(fid,vararg)
 
 novalue = -12345;
 hn = [fread(fid,[5,14],'float32'),fread(fid,[5,8],'int32')];
@@ -205,6 +214,132 @@ if H.NZYEAR >= novalue ...
 	t0 = datenum(H.NZYEAR,1,H.NZJDAY,H.NZHOUR,H.NZMIN,H.NZSEC + H.NZMSEC/1e3);
 
 	% readable origin time
+	H.NZDTTM = [H.NZYEAR,H.NZJDAY,H.NZHOUR,H.NZMIN,H.NZSEC,H.NZMSEC];
 	H.KZDATE = datestr(t0,sprintf('mmm dd (%03d) yyyy',H.NZJDAY));
 	H.KZTIME = datestr(t0,'HH:MM:SS.FFF');
+end
+
+% replaces enumerated values by their explicite description (string)
+if ~any(strcmpi(vararg,'enumerated'))
+	fields = fieldnames(H);
+	enum = fields(strncmpi(fields,'I',1));
+	for n = 1:length(enum)
+		E = enumheader(H.(enum{n}));
+		if ~isempty(E.code)
+			H.(enum{n}) = sprintf('%s {%g}',upper(E.description),H.(enum{n}));
+		end
+	end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function E = enumheader(n)
+
+v = { ...
+	01 , 'ITIME'    , 'Time series file';
+	02 , 'IRLIM'    , 'Spectral file - real and imaginary';
+	03 , 'IAMPH'    , 'Spectral file - amplitude and phase';
+	04 , 'IXY'      , 'General x versus y data';
+	05 , 'IUNKN'    , 'Unknown';
+	06 , 'IDISP'    , 'Displacement in nm';
+	07 , 'IVEL'     , 'Velocity in nm/s';
+	08 , 'IACC'     , 'Acceleration in nm/s/s';
+	09 , 'IB'       , 'Begin time';
+	10 , 'IDAY'     , 'GMT day';
+	11 , 'IO'       , 'Event origin time';
+	12 , 'IA'       , 'First arrival time';
+	13 , 'IT0'      , 'User defined time pick 0';
+	14 , 'IT1'      , 'User defined time pick 1';
+	15 , 'IT2'      , 'User defined time pick 2';
+	16 , 'IT3'      , 'User defined time pick 3';
+	17 , 'IT4'      , 'User defined time pick 4';
+	18 , 'IT5'      , 'User defined time pick 5';
+	19 , 'IT6'      , 'User defined time pick 6';
+	20 , 'IT7'      , 'User defined time pick 7';
+	21 , 'IT8'      , 'User defined time pick 8';
+	22 , 'IT9'      , 'User defined time pick 9';
+	23 , 'IRADNV'   , '';
+	24 , 'ITANNV'   , '';
+	25 , 'IRADEV'   , '';
+	26 , 'ITANEV'   , '';
+	27 , 'INORTH'   , '';
+	28 , 'IEAST'    , '';
+	29 , 'IHORZA'   , '';
+	30 , 'IDOWN'    , '';
+	31 , 'IUP'      , '';
+	32 , 'ILLLBB'   , '';
+	33 , 'IWWSN1'   , '';
+	34 , 'IWWSN2'   , '';
+	35 , 'IHGLP'    , '';
+	36 , 'ISRO'     , '';
+	37 , 'INUCL'    , 'Nuclear event';
+	38 , 'IPREN'    , 'Nuclear pre-shot event';
+	39 , 'IPOSTN'   , 'Nuclear post-shot event';
+	40 , 'IQUAKE'   , 'Earthquake';
+	41 , 'IPREQ'    , 'Foreshock';
+	42 , 'IPOSTQ'   , 'Aftershock';
+	43 , 'ICHEM'    , 'Chemical explosion';
+	44 , 'IOTHER'   , 'Other';
+	45 , 'IGOOD'    , 'Good data';
+	46 , 'IGLCH'    , 'Glitches';
+	47 , 'IDROP'    , 'Dropouts';
+	48 , 'ILOWSN'   , 'Low signal to noise ratio';
+	49 , 'IRLDTA'   , 'Real data';
+	50 , 'IVOLTS'   , 'Velocity in V';
+	52 , 'IMB'      , 'Bodywave Magnitude';
+	53 , 'IMS'      , 'Surfacewave Magnitude';
+	54 , 'IML'      , 'Local Magnitude';
+	55 , 'IMW'      , 'Moment Magnitude';
+	56 , 'IMD'      , 'Duration Magnitude';
+	57 , 'IMX'      , 'User Defined Magnitude';
+	58 , 'INEIC'    , 'National Earthquake Information Center';
+	59 , 'IPDEQ'    , '';
+	60 , 'IPDEW'    , '';
+	61 , 'IPDE'     , 'Preliminary Determination of Epicenter';
+	62 , 'IISC'     , 'Internation Seismological Centre';
+	63 , 'IREB'     , 'Reviewed Event Bulletin';
+	64 , 'IUSGS'    , 'US Geological Survey';
+	65 , 'IBRK'     , 'UC Berkeley';
+	66 , 'ICALTECH' , 'California Institute of Technology';
+	67 , 'ILLNL'    , 'Lawrence Livermore National Laboratory';
+	68 , 'IEVLOC'   , 'Event Location (computer program)';
+	69 , 'IJSOP'    , 'Joint Seismic Observation Program';
+	70 , 'IUSER'    , 'The individual using SAC2000';
+	71 , 'IUNKNOWN' , 'Unknown';
+	72 , 'IQB'      , 'Quarry or mine blast confirmed by quarry';
+	73 , 'IQB1'     , 'Quarry/mine blast with designed shot info-ripple fired';
+	74 , 'IQB2'     , 'Quarry/mine blast with observed shot info-ripple fired';
+	75 , 'IQBX'     , 'Quarry or mine blast - single shot';
+	76 , 'IQMT'     , 'Quarry/mining-induced events: tremors and rockbursts';
+	77 , 'IEQ'      , 'Earthquake';
+	78 , 'IEQ1'     , 'Earthquakes in a swarm or aftershock sequence';
+	79 , 'IEQ2'     , 'Felt earthquake';
+	80 , 'IME'      , 'Marine explosion';
+	81 , 'IEX'      , 'Other explosion';
+	82 , 'INU'      , 'Nuclear explosion';
+	83 , 'INC'      , 'Nuclear cavity collapse';
+	84 , 'IO_'      , 'Other source of known origin';
+	85 , 'IL'       , 'Local event of unknown origin';
+	86 , 'IR'       , 'Regional event of unknown origin';
+	87 , 'IT'       , 'Teleseismic event of unknown origin';
+	88 , 'IU'       , 'Undetermined or conflicting information';
+	89 , 'IEQ3'     , '';
+	90 , 'IEQ0'     , '';
+	91 , 'IEX0'     , '';
+	92 , 'IQC'      , '';
+	93 , 'IQB0'     , '';
+	94 , 'IGEY'     , '';
+	95 , 'ILIT'     , '';
+	96 , 'IMET'     , '';
+	97 , 'IODOR'    , '';
+	103 , 'IOS'     , '';
+};
+v(strcmp(v(:,3),''),3) = v(strcmp(v(:,3),''),2);
+
+k = find(cat(1,v{:,1})==n);
+if isempty(k)
+	E = struct('code',[],'description',[]);
+else
+	E.code = v{k,2};
+	E.description = v{k,3};
 end

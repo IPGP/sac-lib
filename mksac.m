@@ -36,11 +36,14 @@ function mksac(f,d,varargin)
 %
 %	Author: F. Beauducel <beauducel@ipgp.fr>
 %	Created: 2015-11-12
+%	Updated: 2016-03-05
 
-%	History:
+%	Release history:
+%	[2016-03-05] v1.1
+%		- fix a problem with date of origin time
 %	[2015-11-12] v1.0
 %
-%	Copyright (c) 2015, FranÃ§ois Beauducel, covered by BSD License.
+%	Copyright (c) 2016, François Beauducel, covered by BSD License.
 %	All rights reserved.
 %
 %	Redistribution and use in source and binary forms, with or without 
@@ -105,7 +108,7 @@ end
 % header origin time values
 tv = datevec(t0(1));
 H.NZYEAR = tv(1);
-H.NZJDAY = datenum(tv(1:3)) - datenum(tv(1),1,1);
+H.NZJDAY = datenum(tv(1:3)) - datenum(tv(1),1,1) + 1;
 H.NZHOUR = tv(4);
 H.NZMIN = tv(5);
 H.NZSEC = floor(tv(6));
@@ -182,7 +185,16 @@ v = { ...
 hi = int32(repmat(novalue,size(v)));
 for n = 1:numel(v)
 	if isfield(H,v{n})
-		hi(n) = int32(H.(v{n}));
+		% case of enumerated fields I* that may contain 'Description {N}'
+		if strncmp(v{n},'I',1) && ischar(H.(v{n}))
+			d = regexp(H.(v{n}),' {(\d*)}','tokens');
+			if ~isempty(d{1}{1})
+				hi(n) = str2double(d{1}{1});
+			end
+		end
+		if isnumeric(H.(v{n}))
+			hi(n) = int32(H.(v{n}));
+		end
 	end
 end
 
