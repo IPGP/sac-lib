@@ -26,6 +26,7 @@ function mksac(f,d,varargin)
 %	be overwritten in order to keep the file consistency:
 %	- NPTS, DEPMIN, DEPMAX, DEPMEN are inferred from data D
 %	- NZYEAR, NZJDAY, NZHOUR, NZMIN, NZSEC, NZMSEC are defined from time T0
+%	  rounded to the closest millisecond.
 %	- B is forced to 0, E to the last sample relative time (in seconds)
 %	- NVHDR is forced to 6 (header version number)
 %
@@ -37,9 +38,11 @@ function mksac(f,d,varargin)
 %
 %	Author: F. Beauducel <beauducel@ipgp.fr>
 %	Created: 2015-11-12
-%	Updated: 2020-01-15
+%	Updated: 2020-11-11
 
 %	Release history:
+%	[2020-11-11] v1.3
+%		- fix an issue in origin time NZMSEC (thanks to Randall Plate)
 %	[2020-01-15] v1.2
 %		- fix a missing DELTA setting from T vector (thanks to Randall
 %		  Plate comment)
@@ -117,7 +120,8 @@ for h = fieldnames(H0)'
 end
 
 % header origin time values
-tv = datevec(t0(1));
+msinday = 24*60*60*1000; % milliseconds in a day
+tv = datevec(round(t0(1)*msinday)/msinday); % rounds to the closest ms
 H.NZYEAR = tv(1);
 H.NZJDAY = datenum(tv(1:3)) - datenum(tv(1),1,1) + 1;
 H.NZHOUR = tv(4);
