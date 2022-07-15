@@ -1,4 +1,6 @@
-# sac-matlab
+# sac-lib
+
+Read/write functions for SAC files.
 
 ## rdsac.m
 RDSAC reads a seismic data file encoded in the IRIS/SAC binary format, and returns a time vector, a data vector and all header variables in a structure (field names correspond to exact IRIS variable names).
